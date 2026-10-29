@@ -1,0 +1,16 @@
+# Personal data: NEVER commit these. They can contain anything you copied.
+*.log
+processed_events.json
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+.claude/
