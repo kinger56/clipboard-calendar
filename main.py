@@ -2,6 +2,7 @@ import time
 import json
 import os
 import logging
+from logging.handlers import RotatingFileHandler
 import pyperclip
 import re
 from datetime import datetime
@@ -14,18 +15,22 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROCESSED_FILE = os.path.join(BASE_DIR, "processed_events.json")
 
 
+LOG_FILE = os.path.join(BASE_DIR, "assistant.log")
+
+logger = logging.getLogger("clipboard_calendar")
+
+
 def setup_logging():
-    logging.basicConfig(
-        filename="assistant.log",
-        level=logging.INFO,
-        format="%(asctime)s - %(message)s"
-    )
+    """Log what the assistant DOES, never what you copied.
 
-    error_logger = logging.getLogger("error")
-    handler = logging.FileHandler("assistant_error.log")
-    error_logger.addHandler(handler)
-
-    return error_logger
+    The clipboard can hold passwords, messages, anything. So log lines only
+    say things like "added event on 2026-11-05 at 02:00 PM", and the file
+    is capped at 1 MB (plus 2 old copies) instead of growing forever.
+    """
+    handler = RotatingFileHandler(LOG_FILE, maxBytes=1_000_000, backupCount=2)
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
 
 
 def load_processed():
@@ -92,14 +97,13 @@ def split_events(text):
 
 
 def main():
-    error_logger = setup_logging()
+    setup_logging()
     processed = load_processed()
 
     last_text = ""
     seen_errors = set()
 
-    print("Clipboard Assistant is running...")
-    print("Copy text containing assignments or events to test.\n")
+    logger.info("Clipboard assistant started")
 
     while True:
         try:
@@ -115,16 +119,13 @@ def main():
                     if line_lower in seen_errors:
                         continue
 
-                    print(f"\nDetected: {line}")
-
                     try:
                         parsed = parse_event(line)
-                        print("PARSED RESULT:", parsed)
 
                         if parsed:
                             if is_duplicate(parsed, processed):
                                 send_notification("Duplicate Event", "Event already exists")
-                                print("⚠️ Duplicate event skipped.\n")
+                                logger.info("Skipped duplicate event on %s", parsed["date"])
                             else:
                                 add_calendar_event(
                                     parsed["title"],
@@ -145,15 +146,15 @@ def main():
 
                                 save_processed(processed)
 
-                                print("✅ Event added.\n")
+                                logger.info("Added event on %s at %s", parsed["date"], parsed["start_time"])
 
                         else:
-                            print("❌ Could not parse event.\n")
                             seen_errors.add(line_lower)
 
                     except Exception as e:
-                        print(f"❌ Processing error: {e}\n")
-                        error_logger.error(f"{line} → {e}")
+                        # Log the kind of error only: the message can
+                        # contain the copied text.
+                        logger.warning("Could not process a copied line (%s)", type(e).__name__)
                         seen_errors.add(line_lower)
 
                 last_text = text
@@ -161,8 +162,7 @@ def main():
             time.sleep(2)
 
         except Exception as e:
-            print(f"Critical error: {e}")
-            error_logger.error(str(e))
+            logger.error("Unexpected error (%s)", type(e).__name__)
             time.sleep(2)
 
 
