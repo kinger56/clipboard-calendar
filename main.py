@@ -4,9 +4,8 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 import pyperclip
-from datetime import datetime
 
-from event_parser import FRACTION_UNIT, MONTH_DATE, NUMERIC_DATE, parse_event
+from event_parser import parse_event, split_events
 from calendar_manager import CalendarError, add_calendar_event
 from confirm_dialog import ask_to_add
 from notification_manager import send_notification
@@ -57,35 +56,6 @@ def is_duplicate(parsed_event, processed_events):
     return any(
         (e["title"].lower(), e["date"], e["start_time"]) == key for e in processed_events
     )
-
-
-def _date_starts(line):
-    """Where each date in a line starts (skipping fractions like "1/2 cup")."""
-    starts = []
-    for m in NUMERIC_DATE.finditer(line):
-        if not FRACTION_UNIT.match(line, m.end()):
-            starts.append(m.start())
-    starts += [m.start() for m in MONTH_DATE.finditer(line)]
-    return sorted(starts)
-
-
-def split_events(text):
-    """Split copied text into one candidate event per piece.
-
-    Each line is its own piece. A line with several dates, like a syllabus
-    row "11/5 Quiz 1 11/12 Quiz 2", is split at each date, but text before
-    the first date stays with it ("Exam 11/5 2 PM" keeps its title).
-    """
-    pieces = []
-    for line in text.splitlines():
-        line = line.strip()
-        starts = _date_starts(line)
-        cuts = [0] + starts[1:] + [len(line)]
-        for a, b in zip(cuts, cuts[1:]):
-            piece = line[a:b].strip(" ,;")
-            if len(piece) > 5:
-                pieces.append(piece)
-    return pieces
 
 
 def confirm_from_settings(title, start_dt, end_dt):

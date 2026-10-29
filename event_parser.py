@@ -228,3 +228,32 @@ def parse_event(text: str, now: Optional[datetime] = None) -> Optional[dict]:
         "start_dt": start_dt,
         "end_dt": end_dt,
     }
+
+
+def _date_starts(line):
+    """Where each date in a line starts (skipping fractions like "1/2 cup")."""
+    starts = []
+    for m in NUMERIC_DATE.finditer(line):
+        if not FRACTION_UNIT.match(line, m.end()):
+            starts.append(m.start())
+    starts += [m.start() for m in MONTH_DATE.finditer(line)]
+    return sorted(starts)
+
+
+def split_events(text):
+    """Split copied text into one candidate event per piece.
+
+    Each line is its own piece. A line with several dates, like a syllabus
+    row "11/5 Quiz 1 11/12 Quiz 2", is split at each date, but text before
+    the first date stays with it ("Exam 11/5 2 PM" keeps its title).
+    """
+    pieces = []
+    for line in text.splitlines():
+        line = line.strip()
+        starts = _date_starts(line)
+        cuts = [0] + starts[1:] + [len(line)]
+        for a, b in zip(cuts, cuts[1:]):
+            piece = line[a:b].strip(" ,;")
+            if len(piece) > 5:
+                pieces.append(piece)
+    return pieces
