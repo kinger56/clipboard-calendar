@@ -8,7 +8,7 @@ import re
 from datetime import datetime
 
 from ai_parser import parse_event
-from calendar_manager import add_calendar_event
+from calendar_manager import CalendarError, add_calendar_event
 from notification_manager import send_notification
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -150,6 +150,12 @@ def main():
 
                         else:
                             seen_errors.add(line_lower)
+
+                    except CalendarError as e:
+                        # Not the text's fault, so don't remember it as
+                        # unparseable: copying it again will retry.
+                        send_notification("Couldn't add event", str(e))
+                        logger.error("Calendar refused an event")
 
                     except Exception as e:
                         # Log the kind of error only: the message can
