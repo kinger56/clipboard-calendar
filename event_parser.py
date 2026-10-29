@@ -5,7 +5,7 @@ How it works:
      No date means it isn't an event: plain text that happens to contain a
      time ("call me at 3 PM") is ignored.
   2. Find a TIME or time range: "2-4 PM", "11-1", "13-15", "9:15am", "2p".
-     No time means 9:00 AM, or 11:59 PM for things that are "due".
+     No time means 9:00 AM, or 11:00-11:59 PM for things that are "due".
   3. The TITLE is what's left after removing the date and time (plus the
      little words that went with them, like "at" or "on").
 
@@ -18,7 +18,9 @@ from datetime import date, datetime, time, timedelta
 from typing import List, Optional, Tuple
 
 DEFAULT_TIME = time(9, 0)
-DUE_TIME = time(23, 59)
+# A deadline with no time ("Essay due Friday") is shown as the last hour of
+# that day, so the calendar entry doesn't spill past midnight.
+DUE_START, DUE_END = time(23, 0), time(23, 59)
 TONIGHT_TIME = time(19, 0)
 DEFAULT_LENGTH = timedelta(hours=1)
 # A date with no year that is more than this far in the past is assumed to
@@ -204,7 +206,7 @@ def parse_event(text: str, now: Optional[datetime] = None) -> Optional[dict]:
 
     if start_time is None:
         if re.search(r"\bdue\b", text, re.IGNORECASE):
-            start_time = DUE_TIME
+            start_time, end_time = DUE_START, DUE_END
         elif tonight:
             start_time = TONIGHT_TIME
         else:

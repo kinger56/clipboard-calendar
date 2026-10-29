@@ -96,7 +96,7 @@ def test_different_events_at_the_same_time_are_not_duplicates():
     ("Dentist June 2 at 3 PM", "Dentist", datetime(2027, 6, 2, 15), datetime(2027, 6, 2, 16)),
     ("Club meeting next Friday 6:30 PM", "Club meeting", datetime(2026, 10, 30, 18, 30), datetime(2026, 10, 30, 19, 30)),
     ("Quiz Monday 2p", "Quiz", datetime(2026, 11, 2, 14), datetime(2026, 11, 2, 15)),
-    ("Essay due tomorrow", "Essay due", datetime(2026, 10, 30, 23, 59), datetime(2026, 10, 31, 0, 59)),
+    ("Essay due tomorrow", "Essay due", datetime(2026, 10, 30, 23, 0), datetime(2026, 10, 30, 23, 59)),
     ("Exam on 11/5 at 2 PM in room 204", "Exam in room 204", datetime(2026, 11, 5, 14), datetime(2026, 11, 5, 15)),
     ("Standup today 9:15am", "Standup", datetime(2026, 10, 29, 9, 15), datetime(2026, 10, 29, 10, 15)),
     ("Movie Nov 3rd 7-9", "Movie", datetime(2026, 11, 3, 19), datetime(2026, 11, 3, 21)),
