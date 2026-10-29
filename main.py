@@ -96,6 +96,54 @@ def split_events(text):
     return events
 
 
+def process_text(text, processed, seen_errors,
+                 add_event=add_calendar_event, notify=send_notification, save=save_processed):
+    """Handle one new clipboard value: find events in it and add them.
+
+    The add/notify/save functions can be swapped out, so tests can run
+    this without touching Apple Calendar or the real saved-events file.
+    """
+    for line in split_events(text):
+        line_lower = line.lower()
+
+        if line_lower in seen_errors:
+            continue
+
+        try:
+            parsed = parse_event(line)
+
+            if not parsed:
+                seen_errors.add(line_lower)
+            elif is_duplicate(parsed, processed):
+                notify("Duplicate Event", "Event already exists")
+                logger.info("Skipped duplicate event on %s", parsed["date"])
+            else:
+                add_event(parsed["title"], parsed["start_dt"], parsed["end_dt"])
+                notify(
+                    "Event Added",
+                    f"{parsed['title']} on {parsed['date']} from {parsed['start_time']} to {parsed['end_time']}"
+                )
+                processed.append({
+                    "title": parsed["title"],
+                    "date": parsed["date"],
+                    "start_time": parsed["start_time"]
+                })
+                save(processed)
+                logger.info("Added event on %s at %s", parsed["date"], parsed["start_time"])
+
+        except CalendarError as e:
+            # Not the text's fault, so don't remember it as
+            # unparseable: copying it again will retry.
+            notify("Couldn't add event", str(e))
+            logger.error("Calendar refused an event")
+
+        except Exception as e:
+            # Log the kind of error only: the message can
+            # contain the copied text.
+            logger.warning("Could not process a copied line (%s)", type(e).__name__)
+            seen_errors.add(line_lower)
+
+
 def main():
     setup_logging()
     processed = load_processed()
@@ -110,59 +158,7 @@ def main():
             text = pyperclip.paste().strip()
 
             if text and text != last_text:
-
-                event_lines = split_events(text)
-
-                for line in event_lines:
-                    line_lower = line.lower()
-
-                    if line_lower in seen_errors:
-                        continue
-
-                    try:
-                        parsed = parse_event(line)
-
-                        if parsed:
-                            if is_duplicate(parsed, processed):
-                                send_notification("Duplicate Event", "Event already exists")
-                                logger.info("Skipped duplicate event on %s", parsed["date"])
-                            else:
-                                add_calendar_event(
-                                    parsed["title"],
-                                    parsed["start_dt"],
-                                    parsed["end_dt"]
-                                )
-
-                                send_notification(
-                                    "Event Added",
-                                    f"{parsed['title']} on {parsed['date']} from {parsed['start_time']} to {parsed['end_time']}"
-                                )
-
-                                processed.append({
-                                    "title": parsed["title"],
-                                    "date": parsed["date"],
-                                    "start_time": parsed["start_time"]
-                                })
-
-                                save_processed(processed)
-
-                                logger.info("Added event on %s at %s", parsed["date"], parsed["start_time"])
-
-                        else:
-                            seen_errors.add(line_lower)
-
-                    except CalendarError as e:
-                        # Not the text's fault, so don't remember it as
-                        # unparseable: copying it again will retry.
-                        send_notification("Couldn't add event", str(e))
-                        logger.error("Calendar refused an event")
-
-                    except Exception as e:
-                        # Log the kind of error only: the message can
-                        # contain the copied text.
-                        logger.warning("Could not process a copied line (%s)", type(e).__name__)
-                        seen_errors.add(line_lower)
-
+                process_text(text, processed, seen_errors)
                 last_text = text
 
             time.sleep(2)
