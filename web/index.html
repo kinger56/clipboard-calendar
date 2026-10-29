@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clipboard Calendar</title>
+  <meta name="description" content="Paste text, see the calendar events Clipboard Calendar would find. Runs the app's real Python parser in your browser.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+  <style>
+    :root {
+      --bg: #f6f7f9; --card: #fff; --ink: #14171c; --muted: #5d6573; --line: #e1e4ea;
+      --accent: #d9480f; --accent-soft: #fff1ea; --none: #8a919c;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0f1115; --card: #171a20; --ink: #e8ebf0; --muted: #9aa2ae; --line: #2a2f38;
+              --accent: #ff7a45; --accent-soft: #2a1a12; --none: #7d8592; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink);
+           font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 760px; margin: 0 auto; padding: 40px 16px 64px; }
+    h1 { font-size: 2rem; margin: 0; letter-spacing: -0.02em; }
+    h1 span { color: var(--accent); }
+    .lead { color: var(--muted); margin: 6px 0 24px; }
+    .lead a, footer a { color: var(--accent); }
+    label { font-weight: 600; display: block; margin-bottom: 6px; }
+    textarea {
+      width: 100%; min-height: 130px; padding: 12px 14px; resize: vertical;
+      font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink);
+      background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    }
+    textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 24px; }
+    .examples span { color: var(--muted); font-size: .9rem; align-self: center; }
+    .examples button {
+      font: inherit; font-size: .85rem; padding: 5px 11px; cursor: pointer; color: var(--ink);
+      background: var(--card); border: 1px solid var(--line); border-radius: 99px;
+    }
+    .examples button:hover { border-color: var(--accent); }
+    .status { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+    .results { display: grid; gap: 10px; }
+    .event {
+      display: grid; grid-template-columns: 64px 1fr; gap: 14px; align-items: center;
+      background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+    }
+    .day { text-align: center; border-radius: 10px; background: var(--accent-soft); padding: 6px 0; }
+    .day small { display: block; font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+                 text-transform: uppercase; color: var(--accent); }
+    .day b { font-size: 1.5rem; line-height: 1.1; }
+    .event h3 { margin: 0; font-size: 1.05rem; overflow-wrap: anywhere; }
+    .event p { margin: 2px 0 0; color: var(--muted); font-size: .92rem; }
+    .event .from { font-size: .8rem; color: var(--none); overflow-wrap: anywhere; }
+    .skipped { color: var(--none); font-size: .9rem; margin: 2px 0; overflow-wrap: anywhere; }
+    .skipped::before { content: "✕  "; }
+    footer { margin-top: 40px; color: var(--muted); font-size: .9rem; border-top: 1px solid var(--line); padding-top: 16px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Clipboard <span>Calendar</span></h1>
+  <p class="lead">
+    A macOS menu-bar app that watches what you copy and, when it looks like an event, offers to add it
+    to Apple Calendar. Try its parser below: this page runs the app's real Python code
+    (<a href="https://github.com/kinger56/clipboard-calendar/blob/main/event_parser.py">event_parser.py</a>)
+    in your browser with <a href="https://pyodide.org">Pyodide</a>. Nothing you type leaves this page.
+  </p>
+
+  <label for="input">Paste or type something with a date</label>
+  <textarea id="input" spellcheck="false">Data Structures exam 11/5 2-4 PM
+Lab report due Friday
+Study group tomorrow 11-1
+Mix 1/2 cup of water</textarea>
+
+  <div class="examples" id="examples">
+    <span>Try:</span>
+  </div>
+
+  <p class="status" id="status" role="status">Loading Python (about 10 MB, first visit only)…</p>
+  <div class="results" id="results" aria-live="polite"></div>
+
+  <footer>
+    Built by Benjamin King ·
+    <a href="https://github.com/kinger56/clipboard-calendar">Source on GitHub</a> ·
+    Results use today's date in your time zone, so "tomorrow" means tomorrow.
+  </footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.js"></script>
+<script>
+  const EXAMPLES = [
+    "Chat with Nathan about the startup tomorrow at 3 PM",
+    "Office hours Friday 13-15",
+    "11/5 Quiz 1 11/12 Quiz 2 11/19 Final review",
+    "Jan 15 midterm 10 AM",
+    "You may want to review the notes",
+  ]
+  const input = document.getElementById("input")
+  const statusEl = document.getElementById("status")
+  const results = document.getElementById("results")
+
+  for (const text of EXAMPLES) {
+    const b = document.createElement("button")
+    b.type = "button"
+    b.textContent = text
+    b.onclick = () => { input.value = text; render() }
+    document.getElementById("examples").append(b)
+  }
+
+  // Python helper: split the text exactly like the app does, parse each
+  // piece, and hand back plain JSON for JavaScript to display.
+  const BRIDGE = `
+import json
+from datetime import datetime
+from event_parser import parse_event, split_events
+
+def run_demo(text, now_iso):
+    now = datetime.fromisoformat(now_iso)
+    out = []
+    for piece in split_events(text):
+        event = parse_event(piece, now=now)
+        if event:
+            out.append({"source": piece, "title": event["title"],
+                        "start": event["start_dt"].isoformat(), "end": event["end_dt"].isoformat()})
+        else:
+            out.append({"source": piece})
+    return json.dumps(out)
+`
+
+  let runDemo = null
+
+  async function boot() {
+    try {
+      const pyodide = await loadPyodide()
+      // The page is served next to event_parser.py (copied in at deploy time).
+      const source = await fetch("event_parser.py").then((r) => {
+        if (!r.ok) throw new Error("Couldn't load event_parser.py")
+        return r.text()
+      })
+      pyodide.FS.writeFile("event_parser.py", source)
+      pyodide.runPython(BRIDGE)
+      runDemo = pyodide.globals.get("run_demo")
+      statusEl.textContent = ""
+      render()
+    } catch (err) {
+      statusEl.textContent = `Couldn't start Python in this browser: ${err.message}`
+    }
+  }
+
+  // The browser's local time, without a time zone: what "today" means here.
+  function localNowIso() {
+    const d = new Date()
+    const pad = (n) => String(n).padStart(2, "0")
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+
+  const fmtTime = (iso) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+
+  function eventCard(e) {
+    const start = new Date(e.start)
+    const card = document.createElement("article")
+    card.className = "event"
+    const day = document.createElement("div")
+    day.className = "day"
+    day.innerHTML = "<small></small><b></b>"
+    day.querySelector("small").textContent = start.toLocaleDateString([], { month: "short" })
+    day.querySelector("b").textContent = start.getDate()
+    const body = document.createElement("div")
+    const h = document.createElement("h3")
+    h.textContent = e.title  // textContent, never innerHTML: the text is user input
+    const when = document.createElement("p")
+    when.textContent = `${start.toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" })} · ${fmtTime(e.start)} – ${fmtTime(e.end)}`
+    const from = document.createElement("p")
+    from.className = "from"
+    from.textContent = `from “${e.source}”`
+    body.append(h, when, from)
+    card.append(day, body)
+    return card
+  }
+
+  function render() {
+    if (!runDemo) return
+    const items = JSON.parse(runDemo(input.value, localNowIso()))
+    results.replaceChildren(...items.map((e) => {
+      if (e.title) return eventCard(e)
+      const p = document.createElement("p")
+      p.className = "skipped"
+      p.textContent = `Not an event: “${e.source}”`
+      return p
+    }))
+    if (!items.length) {
+      const p = document.createElement("p")
+      p.className = "skipped"
+      p.textContent = "Nothing yet."
+      results.replaceChildren(p)
+    }
+  }
+
+  let timer
+  input.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(render, 150) })
+  boot()
+</script>
+</body>
+</html>
