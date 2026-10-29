@@ -1,6 +1,8 @@
 # Personal data: NEVER commit these. They can contain anything you copied.
 *.log
+*.log.*
 processed_events.json
+settings.json
 
 # Python
 venv/

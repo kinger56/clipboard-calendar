@@ -12,6 +12,7 @@ from datetime import date
 import rumps
 
 import service
+from settings import load_settings, save_settings
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROCESSED_FILE = os.path.join(BASE_DIR, "processed_events.json")
@@ -27,11 +28,14 @@ class ClipboardAssistantApp(rumps.App):
 
     def __init__(self):
         super().__init__("📋", quit_button=None)
+        self.ask_item = rumps.MenuItem("Ask Before Adding", callback=self.on_toggle_ask)
+        self.ask_item.state = load_settings()["ask_before_adding"]  # checkmark when on
         self.menu = [
             "Start Assistant",
             "Stop Assistant",
             "Restart Assistant",
             None,
+            self.ask_item,
             "Show Upcoming Events",
             "Clear Memory",
             None,
@@ -60,6 +64,13 @@ class ClipboardAssistantApp(rumps.App):
         service.restart()
         rumps.notification("Clipboard Calendar", "Restarted", "")
         self.refresh_status(None)
+
+    def on_toggle_ask(self, item):
+        settings = load_settings()
+        settings["ask_before_adding"] = not settings["ask_before_adding"]
+        save_settings(settings)
+        item.state = settings["ask_before_adding"]
+        # The assistant reads settings for every event: no restart needed.
 
     @rumps.clicked("Show Upcoming Events")
     def on_events(self, _):

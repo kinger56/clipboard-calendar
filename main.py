@@ -8,7 +8,9 @@ from datetime import datetime
 
 from ai_parser import FRACTION_UNIT, MONTH_DATE, NUMERIC_DATE, parse_event
 from calendar_manager import CalendarError, add_calendar_event
+from confirm_dialog import ask_to_add
 from notification_manager import send_notification
+from settings import load_settings
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROCESSED_FILE = os.path.join(BASE_DIR, "processed_events.json")
@@ -86,12 +88,23 @@ def split_events(text):
     return pieces
 
 
+def confirm_from_settings(title, start_dt, end_dt):
+    """Ask first if "Ask Before Adding" is on (the default). Read on every
+    event, so toggling it in the menu works without a restart."""
+    if load_settings()["ask_before_adding"]:
+        return ask_to_add(title, start_dt, end_dt)
+    return title
+
+
 def process_text(text, processed, seen_errors,
-                 add_event=add_calendar_event, notify=send_notification, save=save_processed):
+                 add_event=add_calendar_event, notify=send_notification, save=save_processed,
+                 confirm=None):
     """Handle one new clipboard value: find events in it and add them.
 
-    The add/notify/save functions can be swapped out, so tests can run
-    this without touching Apple Calendar or the real saved-events file.
+    The add/notify/save/confirm functions can be swapped out, so tests can
+    run this without touching Apple Calendar or the real saved-events file.
+    `confirm(title, start, end)` returns the title to use, or None to skip;
+    with no `confirm`, events are added without asking.
     """
     for line in split_events(text):
         line_lower = line.lower()
@@ -108,13 +121,17 @@ def process_text(text, processed, seen_errors,
                 notify("Duplicate Event", "Event already exists")
                 logger.info("Skipped duplicate event on %s", parsed["date"])
             else:
-                add_event(parsed["title"], parsed["start_dt"], parsed["end_dt"])
+                title = confirm(parsed["title"], parsed["start_dt"], parsed["end_dt"]) if confirm else parsed["title"]
+                if title is None:
+                    logger.info("You chose not to add an event on %s", parsed["date"])
+                    continue
+                add_event(title, parsed["start_dt"], parsed["end_dt"])
                 notify(
                     "Event Added",
-                    f"{parsed['title']} on {parsed['date']} from {parsed['start_time']} to {parsed['end_time']}"
+                    f"{title} on {parsed['date']} from {parsed['start_time']} to {parsed['end_time']}"
                 )
                 processed.append({
-                    "title": parsed["title"],
+                    "title": title,
                     "date": parsed["date"],
                     "start_time": parsed["start_time"]
                 })
@@ -148,7 +165,7 @@ def main():
             text = pyperclip.paste().strip()
 
             if text and text != last_text:
-                process_text(text, processed, seen_errors)
+                process_text(text, processed, seen_errors, confirm=confirm_from_settings)
                 last_text = text
 
             time.sleep(2)
