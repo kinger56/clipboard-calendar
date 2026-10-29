@@ -4,10 +4,9 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 import pyperclip
-import re
 from datetime import datetime
 
-from ai_parser import parse_event
+from ai_parser import FRACTION_UNIT, MONTH_DATE, NUMERIC_DATE, parse_event
 from calendar_manager import CalendarError, add_calendar_event
 from notification_manager import send_notification
 
@@ -47,53 +46,44 @@ def save_processed(data):
 
 
 def is_duplicate(parsed_event, processed_events):
-    for event in processed_events:
-        matches = 0
+    """Same title (ignoring case), date AND time as an event already added.
 
-        if event["title"].lower() == parsed_event["title"].lower():
-            matches += 1
-        if event["date"] == parsed_event["date"]:
-            matches += 1
-        if event["start_time"] == parsed_event["start_time"]:
-            matches += 1
-
-        if matches >= 2:
-            return True
-
-    return False
-
-
-# ✅ ✅ SMART EVENT SPLITTING (DATE-BASED)
-def split_events(text):
-    text = text.replace("\n", " ")
-
-    pattern = re.compile(
-        r'(?:\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b\s*\d{1,2}|\b\d{1,2}/\d{1,2})',
-        re.IGNORECASE
+    It used to be any 2 of the 3, so "Bio quiz" was skipped as a duplicate
+    of "Chem quiz" at the same date and time.
+    """
+    key = (parsed_event["title"].lower(), parsed_event["date"], parsed_event["start_time"])
+    return any(
+        (e["title"].lower(), e["date"], e["start_time"]) == key for e in processed_events
     )
 
-    matches = list(pattern.finditer(text))
 
-    events = []
+def _date_starts(line):
+    """Where each date in a line starts (skipping fractions like "1/2 cup")."""
+    starts = []
+    for m in NUMERIC_DATE.finditer(line):
+        if not FRACTION_UNIT.match(line, m.end()):
+            starts.append(m.start())
+    starts += [m.start() for m in MONTH_DATE.finditer(line)]
+    return sorted(starts)
 
-    if not matches:
-        return [text]
 
-    for i in range(len(matches)):
-        start = matches[i].start()
+def split_events(text):
+    """Split copied text into one candidate event per piece.
 
-        if i + 1 < len(matches):
-            end = matches[i + 1].start()
-        else:
-            end = len(text)
-
-        event = text[start:end].strip()
-        event = event.strip(", ")
-
-        if len(event) > 5:
-            events.append(event)
-
-    return events
+    Each line is its own piece. A line with several dates, like a syllabus
+    row "11/5 Quiz 1 11/12 Quiz 2", is split at each date, but text before
+    the first date stays with it ("Exam 11/5 2 PM" keeps its title).
+    """
+    pieces = []
+    for line in text.splitlines():
+        line = line.strip()
+        starts = _date_starts(line)
+        cuts = [0] + starts[1:] + [len(line)]
+        for a, b in zip(cuts, cuts[1:]):
+            piece = line[a:b].strip(" ,;")
+            if len(piece) > 5:
+                pieces.append(piece)
+    return pieces
 
 
 def process_text(text, processed, seen_errors,
