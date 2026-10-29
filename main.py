@@ -6,7 +6,7 @@ from logging.handlers import RotatingFileHandler
 import pyperclip
 from datetime import datetime
 
-from ai_parser import FRACTION_UNIT, MONTH_DATE, NUMERIC_DATE, parse_event
+from event_parser import FRACTION_UNIT, MONTH_DATE, NUMERIC_DATE, parse_event
 from calendar_manager import CalendarError, add_calendar_event
 from confirm_dialog import ask_to_add
 from notification_manager import send_notification

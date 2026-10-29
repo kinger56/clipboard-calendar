@@ -11,7 +11,7 @@ arguments (`argv`), so they can only ever be data, never code.
 import subprocess
 from datetime import datetime
 
-CALENDAR_NAME = "AI Assistant"
+from settings import load_settings
 
 # Builds dates from numbers, so it works whatever language/region the Mac
 # is set to (parsing "October 29, 2026 3:00 PM" text depends on locale).
@@ -57,12 +57,14 @@ def run_osascript(script: str, args: list) -> subprocess.CompletedProcess:
     )
 
 
-def add_calendar_event(title: str, start_dt: datetime, end_dt: datetime, run=run_osascript):
+def add_calendar_event(title: str, start_dt: datetime, end_dt: datetime,
+                       run=run_osascript, calendar_name=None):
     """Add an event, or raise CalendarError. `run` is swappable for tests."""
-    args = [title, CALENDAR_NAME, *_date_args(start_dt), *_date_args(end_dt)]
+    calendar_name = calendar_name or load_settings()["calendar_name"]
+    args = [title, calendar_name, *_date_args(start_dt), *_date_args(end_dt)]
     result = run(ADD_EVENT_SCRIPT, args)
     if result.returncode != 0:
         # Don't include stderr: AppleScript errors can echo the title back.
         raise CalendarError(
-            f'Calendar refused the event (does a calendar named "{CALENDAR_NAME}" exist?)'
+            f'Calendar refused the event (does a calendar named "{calendar_name}" exist?)'
         )

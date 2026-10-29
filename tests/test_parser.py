@@ -10,7 +10,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from ai_parser import parse_event
+from event_parser import parse_event
 from main import is_duplicate
 
 NOW = datetime(2026, 10, 29, 10, 0)  # a Thursday

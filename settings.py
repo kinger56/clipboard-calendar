@@ -14,6 +14,9 @@ SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
 DEFAULTS = {
     # Show an Add / Ignore prompt (with an editable title) before adding.
     "ask_before_adding": True,
+    # The Apple Calendar calendar events go into. Create it in Calendar
+    # first (File > New Calendar).
+    "calendar_name": "Clipboard Calendar",
 }
 
 

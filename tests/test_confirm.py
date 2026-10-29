@@ -86,13 +86,16 @@ def test_duplicates_are_skipped_without_asking():
 
 
 def test_settings_default_to_asking(tmp_path):
-    assert load_settings(str(tmp_path / "missing.json")) == DEFAULTS == {"ask_before_adding": True}
+    defaults = load_settings(str(tmp_path / "missing.json"))
+    assert defaults == DEFAULTS
+    assert defaults["ask_before_adding"] is True
+    assert defaults["calendar_name"] == "Clipboard Calendar"
 
 
 def test_settings_round_trip_and_ignore_junk(tmp_path):
     path = str(tmp_path / "settings.json")
     save_settings({"ask_before_adding": False}, path)
-    assert load_settings(path) == {"ask_before_adding": False}
+    assert load_settings(path) == {**DEFAULTS, "ask_before_adding": False}
 
     (tmp_path / "settings.json").write_text("{not json")
     assert load_settings(path) == DEFAULTS
