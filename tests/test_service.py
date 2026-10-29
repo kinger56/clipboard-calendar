@@ -58,3 +58,12 @@ def test_restart_kills_then_starts():
 def test_menu_never_kills_processes_by_name():
     source = open(os.path.join(os.path.dirname(service.__file__), "menu_app.py")).read()
     assert "pkill" not in source and "os.system" not in source
+
+
+def test_install_scripts_use_the_same_labels_as_the_menu():
+    # If these drift apart, Start/Stop would control a service that doesn't exist.
+    root = os.path.dirname(service.__file__)
+    for script in ("install.sh", "uninstall.sh"):
+        text = open(os.path.join(root, script)).read()
+        assert service.ASSISTANT_LABEL in text
+        assert service.MENU_LABEL in text

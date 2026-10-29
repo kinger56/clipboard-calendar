@@ -12,8 +12,8 @@ Here we ask launchd itself to start/stop the service, by its label.
 import os
 import subprocess
 
-ASSISTANT_LABEL = "com.benking.aiassistant"
-MENU_LABEL = "com.clipboard.menu"
+ASSISTANT_LABEL = "com.clipboardcalendar.assistant"
+MENU_LABEL = "com.clipboardcalendar.menu"
 LAUNCH_AGENTS = os.path.expanduser("~/Library/LaunchAgents")
 
 
