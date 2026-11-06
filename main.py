@@ -42,8 +42,11 @@ def load_processed():
 
 
 def save_processed(data):
-    with open(PROCESSED_FILE, "w") as f:
+    # Event titles are personal: create the file readable by this user only.
+    fd = os.open(PROCESSED_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
         json.dump(data, f, indent=4)
+    os.chmod(PROCESSED_FILE, 0o600)  # also tighten a file made by an older version
 
 
 def is_duplicate(parsed_event, processed_events):

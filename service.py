@@ -10,11 +10,13 @@ Here we ask launchd itself to start/stop the service, by its label.
 """
 
 import os
-import subprocess
+import subprocess  # nosec B404 - only runs the fixed launchctl path below
 
 ASSISTANT_LABEL = "com.clipboardcalendar.assistant"
 MENU_LABEL = "com.clipboardcalendar.menu"
 LAUNCH_AGENTS = os.path.expanduser("~/Library/LaunchAgents")
+# Full path, so a program named "launchctl" planted earlier on PATH can't run instead.
+LAUNCHCTL = "/bin/launchctl"
 
 
 def _domain() -> str:
@@ -22,7 +24,7 @@ def _domain() -> str:
 
 
 def _run(args: list) -> subprocess.CompletedProcess:
-    return subprocess.run(["launchctl", *args], capture_output=True, text=True)
+    return subprocess.run([LAUNCHCTL, *args], capture_output=True, text=True)  # nosec B603
 
 
 def is_running(label: str = ASSISTANT_LABEL, run=_run) -> bool:

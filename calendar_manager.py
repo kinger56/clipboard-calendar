@@ -8,10 +8,15 @@ never changes: the title and dates go in as separate command-line
 arguments (`argv`), so they can only ever be data, never code.
 """
 
-import subprocess
+import subprocess  # nosec B404 - only runs the fixed osascript path below
 from datetime import datetime
 
 from settings import load_settings
+
+# Full path, so a program named "osascript" planted earlier on PATH can't
+# run instead. Arguments are passed as a list (no shell), so copied text
+# can't become a command.
+OSASCRIPT = "/usr/bin/osascript"
 
 # Builds dates from numbers, so it works whatever language/region the Mac
 # is set to (parsing "October 29, 2026 3:00 PM" text depends on locale).
@@ -53,8 +58,8 @@ def _date_args(dt: datetime) -> list:
 def run_osascript(script: str, args: list) -> subprocess.CompletedProcess:
     # "-" means "read the script from stdin"; everything after it is argv.
     return subprocess.run(
-        ["osascript", "-", *args], input=script, capture_output=True, text=True
-    )
+        [OSASCRIPT, "-", *args], input=script, capture_output=True, text=True
+    )  # nosec B603 - fixed script, untrusted text only as separate arguments
 
 
 def add_calendar_event(title: str, start_dt: datetime, end_dt: datetime,

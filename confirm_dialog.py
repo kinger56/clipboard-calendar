@@ -8,11 +8,16 @@ Like the calendar script, the AppleScript never changes: the title and
 time go in as arguments, so copied text can't become AppleScript code.
 """
 
-import subprocess
+import subprocess  # nosec B404 - only runs the fixed osascript path below
 from datetime import datetime
 from typing import Optional
 
 TIMEOUT_SECONDS = 120
+
+# Full path, so a program named "osascript" planted earlier on PATH can't
+# run instead. Arguments are passed as a list (no shell), so copied text
+# can't become a command.
+OSASCRIPT = "/usr/bin/osascript"
 
 CONFIRM_SCRIPT = """
 on run argv
@@ -39,8 +44,8 @@ def describe_time(start: datetime, end: datetime) -> str:
 
 def run_osascript(script: str, args: list) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["osascript", "-", *args], input=script, capture_output=True, text=True
-    )
+        [OSASCRIPT, "-", *args], input=script, capture_output=True, text=True
+    )  # nosec B603 - fixed script, untrusted text only as separate arguments
 
 
 def ask_to_add(title: str, start: datetime, end: datetime, run=run_osascript) -> Optional[str]:

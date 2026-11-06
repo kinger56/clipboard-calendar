@@ -85,7 +85,10 @@ Mix 1/2 cup of water</textarea>
   </footer>
 </main>
 
-<script src="https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.js"></script>
+<!-- integrity: the browser refuses to run this file if the CDN ever serves
+     anything other than the exact Pyodide 0.27.7 release it was pinned to. -->
+<script src="https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.js"
+        integrity="sha384-90so5tCKvl0xs9agU29IMKlAVzhfzFX7QO//YxQkRhJG58bBZrFN+2ZTRB026X5X" crossorigin="anonymous"></script>
 <script>
   const EXAMPLES = [
     "Chat with Nathan about the startup tomorrow at 3 PM",
